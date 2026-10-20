@@ -45,6 +45,12 @@ void
 vkr_renderer_destroy_context(uint32_t ctx_id);
 
 bool
+vkr_renderer_attach_resource(uint32_t ctx_id, struct virgl_resource *res);
+
+bool
+vkr_renderer_detach_resource(uint32_t ctx_id, uint32_t res_id);
+
+bool
 vkr_renderer_submit_cmd(uint32_t ctx_id, void *cmd, uint32_t size);
 
 bool
