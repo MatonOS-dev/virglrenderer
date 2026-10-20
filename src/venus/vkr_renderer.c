@@ -145,6 +145,9 @@ vkr_renderer_destroy_context(uint32_t ctx_id)
 bool
 vkr_renderer_attach_resource(uint32_t ctx_id, struct virgl_resource *res)
 {
+   if (!vkr_state.cbs)
+      return false;
+
    struct vkr_context *ctx = vkr_renderer_lookup_context(ctx_id);
    if (!ctx)
       return false;
@@ -178,6 +181,9 @@ vkr_renderer_attach_resource(uint32_t ctx_id, struct virgl_resource *res)
 bool
 vkr_renderer_detach_resource(uint32_t ctx_id, uint32_t res_id)
 {
+   if (!vkr_state.cbs)
+      return false;
+
    struct vkr_context *ctx = vkr_renderer_lookup_context(ctx_id);
    if (!ctx)
       return false;
