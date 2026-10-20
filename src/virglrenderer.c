@@ -57,6 +57,9 @@
 #include "virgl_fence.h"
 #include "virgl_resource.h"
 #include "virgl_util.h"
+#ifdef ENABLE_VENUS
+#include "venus/vkr_renderer.h"
+#endif
 
 struct global_state {
    bool client_initialized;
@@ -463,7 +466,13 @@ void virgl_renderer_ctx_attach_resource(int ctx_id, int res_handle)
    TRACE_FUNC();
    struct virgl_context *ctx = virgl_context_lookup(ctx_id);
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
-   if (!ctx || !res)
+   if (!res)
+      return;
+#ifdef ENABLE_VENUS
+   if (vkr_renderer_attach_resource(ctx_id, res))
+      return;
+#endif
+   if (!ctx)
       return;
    ctx->attach_resource(ctx, res);
 }
@@ -473,7 +482,13 @@ void virgl_renderer_ctx_detach_resource(int ctx_id, int res_handle)
    TRACE_FUNC();
    struct virgl_context *ctx = virgl_context_lookup(ctx_id);
    struct virgl_resource *res = virgl_resource_lookup(res_handle);
-   if (!ctx || !res)
+   if (!res)
+      return;
+#ifdef ENABLE_VENUS
+   if (vkr_renderer_detach_resource(ctx_id, res_handle))
+      return;
+#endif
+   if (!ctx)
       return;
    ctx->detach_resource(ctx, res);
 }

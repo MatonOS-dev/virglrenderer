@@ -9,6 +9,8 @@
 #include "virglrenderer_hw.h"
 
 #include "vkr_context.h"
+#include "virgl_resource.h"
+#include <unistd.h>
 
 struct vkr_renderer_state {
    const struct vkr_renderer_callbacks *cbs;
@@ -138,6 +140,50 @@ vkr_renderer_destroy_context(uint32_t ctx_id)
 
    list_del(&ctx->head);
    vkr_context_destroy(ctx);
+}
+
+bool
+vkr_renderer_attach_resource(uint32_t ctx_id, struct virgl_resource *res)
+{
+   struct vkr_context *ctx = vkr_renderer_lookup_context(ctx_id);
+   if (!ctx)
+      return false;
+   if (vkr_context_get_resource(ctx, res->res_id))
+      return true;
+
+   int fd = -1;
+   const enum virgl_resource_fd_type fd_type = virgl_resource_export_fd(res, &fd);
+   if (fd_type != VIRGL_RESOURCE_FD_DMABUF) {
+      vkr_log("failed to export attached resource %u as dma-buf (fd_type %d)",
+              res->res_id, fd_type);
+      if (fd >= 0)
+         close(fd);
+      return true;
+   }
+
+   const off_t size = lseek(fd, 0, SEEK_END);
+   if (size <= 0) {
+      vkr_log("failed to get attached resource %u size", res->res_id);
+      close(fd);
+      return true;
+   }
+
+   if (!vkr_context_import_resource(ctx, res->res_id, fd_type, fd, size)) {
+      vkr_log("failed to import attached resource %u", res->res_id);
+      close(fd);
+   }
+   return true;
+}
+
+bool
+vkr_renderer_detach_resource(uint32_t ctx_id, uint32_t res_id)
+{
+   struct vkr_context *ctx = vkr_renderer_lookup_context(ctx_id);
+   if (!ctx)
+      return false;
+
+   vkr_context_destroy_resource(ctx, res_id);
+   return true;
 }
 
 bool
