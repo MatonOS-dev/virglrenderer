@@ -7512,6 +7512,21 @@ static enum virgl_resource_fd_type vrend_pipe_resource_export_fd(UNUSED struct p
          return VIRGL_RESOURCE_FD_DMABUF;
    }
 #endif
+#ifdef ENABLE_GBM
+   {
+      struct vrend_resource *gres = (struct vrend_resource *)pres;
+      int stride = 0, offset = 0;
+      /* MatonOS: export host GL textures so Venus can import gralloc
+       * resources without minigbm allocation. */
+      if ((gres->storage_bits & VREND_STORAGE_GL_TEXTURE) &&
+          gres->target == GL_TEXTURE_2D) {
+         vrend_hw_switch_context(vrend_state.ctx0, true);
+         if (!vrend_winsys_get_fd_for_texture2(gres->gl_id, fd, &stride, &offset)) {
+            return VIRGL_RESOURCE_FD_DMABUF;
+         }
+      }
+   }
+#endif
 
    return VIRGL_RESOURCE_FD_INVALID;
 }
@@ -8642,7 +8657,17 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
                                   gbm_format);
    } else
 #endif
-   {
+   if (gr->base.bind & VIRGL_RES_BIND_SCANOUT) {
+      /* MatonOS: QEMU samples scanouts, and tiled ones show black. Use an
+       * explicit LINEAR modifier so layout queries report LINEAR, not
+       * INVALID (RADV rejects INVALID for explicit-modifier images). */
+      const uint64_t linear = 0; /* DRM_FORMAT_MOD_LINEAR */
+      bo = gbm_bo_create_with_modifiers2(gbm->device, gr->base.width0,
+                                         gr->base.height0, gbm_format,
+                                         &linear, 1,
+                                         gbm_flags & ~GBM_BO_USE_LINEAR);
+      gr->gbm_direct_transfer = true;
+   } else {
       bo = gbm_bo_create(gbm->device, gr->base.width0, gr->base.height0,
                          gbm_format, gbm_flags);
 
@@ -12909,6 +12934,8 @@ static void vrend_renderer_fill_caps_v2(int gl_ver, int gles_ver,  union virgl_c
 #endif
    if (vrend_has_venus_interop())
       caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_QUERY_FORMAT_MODIFIER;
+   if (vrend_state.gbm_layout_feat)
+      caps->v2.capability_bits_v2 |= VIRGL_CAP_V2_RESOURCE_LAYOUT;
 }
 
 void vrend_renderer_fill_caps(uint32_t set, uint32_t version,
