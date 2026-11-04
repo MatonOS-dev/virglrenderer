@@ -8652,7 +8652,8 @@ static void vrend_resource_gbm_init(struct vrend_resource *gr, uint32_t format)
    struct gbm_bo *bo;
 
 #if !defined(MINIGBM)
-   if ((gr->base.bind & VIRGL_BIND_SHARED) && !(gbm_flags & GBM_BO_USE_LINEAR)) {
+   if ((gr->base.bind & VIRGL_BIND_SHARED) && !(gr->base.bind & VIRGL_RES_BIND_SCANOUT) &&
+       !(gbm_flags & GBM_BO_USE_LINEAR)) {
       bo = vrend_vk_gbm_bo_create(gbm->device, gr->base.width0, gr->base.height0,
                                   gbm_format);
    } else
